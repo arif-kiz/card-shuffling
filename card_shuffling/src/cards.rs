@@ -9,12 +9,14 @@ impl Cards {
         }
     }
 
+    // Middle Split
     // Split the deck into two part at a point and interchanges them
     pub fn middle_split(&mut self) {
         let mid = self.cards.len() / 2;
         self.cards.rotate_left(mid);
     }
 
+    // Split at
     // Splits the deck into two part at a point and interchanges them
     pub fn split_at(&mut self, i: usize) {
         if i <= self.cards.len() {
@@ -47,5 +49,17 @@ impl Cards {
             return
         }
         self.cards[0..j].rotate_right(j-i);
+    }
+
+    pub fn is_shuffled_properly(&self) -> bool {
+        for i in 0..self.cards.len()-1 {
+            if self.cards[i] == i {
+                return false;
+            }
+            if self.cards[i]+1 == self.cards[i+1] {
+                return false;
+            }
+        }
+        true
     }
 }
