@@ -1,11 +1,37 @@
+use crate::card::{Card, Color, Action};
+
 pub struct Cards {
-    pub cards: Vec<usize>,
+    pub cards: Vec<Card>,
 }
 
 impl Cards {
     pub fn new(size: usize) -> Self {
         Cards {
-            cards: (0..size).into_iter().collect(),
+            cards: (0..size).into_iter().map(|_| Card::new(Color::Yellow, Action::Number(0))).collect(),
+        }
+    }
+
+    pub fn from_file(filename: &str) -> Self {
+        if let Ok(contents) = std::fs::read_to_string(filename) {
+            let cards = contents.lines().flat_map(|line| {
+                let parts = line.split_whitespace().collect::<Vec<&str>>();
+                if parts.len() != 3 {
+                    // Skip empty or invalid lines
+                    return vec![].into_iter();
+                }
+                // The format is: action color count (e.g. `0 yellow 2`)
+                let action = Action::from_string(parts[0]);
+                let color = Color::from_string(parts[1]);
+                let count: usize = parts[2].parse().unwrap_or(0);
+                
+                // Returns `count` cards of the same type via flat_map
+                vec![Card::new(color, action); count].into_iter()
+            }).collect();
+            Cards {
+                cards,
+            }
+        } else {
+            Cards::new(0)
         }
     }
 
@@ -51,15 +77,90 @@ impl Cards {
         self.cards[0..j].rotate_right(j-i);
     }
 
-    pub fn is_shuffled_properly(&self) -> bool {
-        for i in 0..self.cards.len()-1 {
-            if self.cards[i] == i {
-                return false;
+    // Helper function for card power evaluation
+    fn card_power(card: &Card) -> i32 {
+        let mut power = match card.get_action() {
+            Action::Number(_) => 1,
+            Action::Skip | Action::Reverse => 2,
+            Action::DrawTwo | Action::SkipAll | Action::DiscardAll => 3,
+            Action::DrawFour => 4,
+            Action::ReverseDrawFour => 5,
+            Action::DrawSix | Action::ColorRoulette => 6,
+            Action::DrawTen => 8,
+        };
+        if card.get_color() == Color::Wild {
+            power += 2;
+        }
+        power
+    }
+
+    // Helper function to evaluate pair interaction
+    fn evaluate_pair(card_a: &Card, card_b: &Card, distance: i32) -> i32 {
+        if distance == 0 {
+            return 0; // Safety guard
+        }
+        
+        let power_a = Self::card_power(card_a);
+        let power_b = Self::card_power(card_b);
+        let mut delta = 0;
+
+        // Same color penalty
+        if card_a.get_color() == card_b.get_color() {
+            if card_a.get_color() == Color::Wild {
+                // Penalize clustered Wilds more noticeably
+                delta -= 15 / distance; 
+            } else {
+                // User requirement: same color should have very little decrease in points
+                delta -= 2 / distance; 
             }
-            if self.cards[i]+1 == self.cards[i+1] {
-                return false;
+        } else {
+            // Reward color variety
+            delta += 5 / distance; 
+        }
+
+        // Same exact action penalty (e.g. chaining lots of Skips)
+        if card_a.get_action() == card_b.get_action() {
+            delta -= 20 / distance;
+        }
+
+        // High value card clustering
+        if power_a > 3 && power_b > 3 {
+            delta -= (power_a * power_b) / distance;
+        } else if power_a > 3 {
+            // Reward for high value card well distributed among average/low value cards
+            delta += (power_a * (10 - power_b)) / distance;
+        }
+
+        delta
+    }
+
+    // Helper function to evaluate single card within window
+    fn evaluate_card(cards: &[Card], index: usize, window: usize) -> i32 {
+        let mut score = 0;
+        let start = index.saturating_sub(window);
+        let end = (index + window + 1).min(cards.len());
+
+        let target = &cards[index];
+        for j in start..end {
+            if index != j {
+                let dist = (index as i32 - j as i32).abs();
+                score += Self::evaluate_pair(target, &cards[j], dist);
             }
         }
-        true
+        score
+    }
+
+    pub fn is_shuffled_properly(&self) -> (Vec<i32>, i32) {
+        let mut scores = Vec::with_capacity(self.cards.len());
+        let mut total_score = 0;
+        let window = 7; // User agreed to window size 7
+        
+        for i in 0..self.cards.len() {
+            let score = Self::evaluate_card(&self.cards, i, window);
+            scores.push(score);
+            total_score += score;
+        }
+        
+        (scores, total_score)
     }
 }
