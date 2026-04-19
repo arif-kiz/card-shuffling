@@ -1,34 +1,56 @@
-mod cards;
-mod card;
-const NUMBER_OF_CARDS: usize = 168;
-use cards::Cards;
+//! Example: loading and shuffling an Uno No Mercy deck.
+//!
+//! Run with:
+//! ```sh
+//! cargo run
+//! ```
+//! Place `uno_nomercy.txt` in the project root (next to `Cargo.toml`).
+
+use card_shuffling::prelude::*;
+
+/// Prints a one-line status report for the deck.
+fn status(label: &str, deck: &Cards) {
+    let n = deck.len();
+    let score = deck.is_shuffled_properly();
+    let head  = &deck.cards[..5.min(n)];
+    let tail  = &deck.cards[n.saturating_sub(5)..];
+    println!("{label:<26} | quality: {:>8} | head: {head:?}", score.quality,);
+    println!("{:26} |                   | tail: {tail:?}", "");
+    println!();
+}
 
 fn main() {
-    let mut cards: Cards = Cards::from_file("uno_nomercy.txt");
-    println!("Total cards loaded from file: {}", cards.cards.len());
-    
-    println!("Fisrt: {:?} - {:?}", &cards.cards[0..5], &cards.cards[NUMBER_OF_CARDS-5..NUMBER_OF_CARDS]);
-    let (_, score) = cards.is_shuffled_properly();
-    println!("Shuffle score: {}", score);
+    let mut deck = Cards::from_file("uno_nomercy.txt");
+    println!("Loaded {} cards\n", deck.len());
 
-    cards.middle_split();
-    println!("Middle Split: {:?} - {:?}", &cards.cards[0..5], &cards.cards[NUMBER_OF_CARDS-5..NUMBER_OF_CARDS]);
-    let (_, score) = cards.is_shuffled_properly();
-    println!("Shuffle score: {}", score);
+    status("Initial (unshuffled)", &deck);
 
-    cards.split_at(50);
-    println!("Split at 50: {:?} - {:?}", &cards.cards[0..5], &cards.cards[NUMBER_OF_CARDS-5..NUMBER_OF_CARDS]);
-    let (_, score) = cards.is_shuffled_properly();
-    println!("Shuffle score: {}", score);
+    deck.middle_split();
+    status("After middle_split", &deck);
 
-    cards.riffle_shuffle();
-    println!("Riffle Shuffle: {:?} - {:?}", &cards.cards[0..5], &cards.cards[NUMBER_OF_CARDS-5..NUMBER_OF_CARDS]);
-    // println!("{:?}", &cards.cards[NUMBER_OF_CARDS/2-5..NUMBER_OF_CARDS/2+5]);
-    let (_, score) = cards.is_shuffled_properly();
-    println!("Shuffle score: {}", score);
+    deck.split_at(50);
+    status("After split_at(50)", &deck);
 
-    cards.take_from_middle(20, 80);
-    println!("From middle: {:?} - {:?}", &cards.cards[0..5], &cards.cards[NUMBER_OF_CARDS-5..NUMBER_OF_CARDS]);
-    let (_, score) = cards.is_shuffled_properly();
-    println!("Shuffle score: {}", score);
+    deck.riffle_shuffle();
+    status("After riffle_shuffle", &deck);
+
+    deck.double_riffle_shuffle();
+    status("After double_riffle", &deck);
+
+    deck.take_from_middle(20, 80);
+    status("After take_from_middle", &deck);
+
+    // Iterate directly over the deck (IntoIterator for &Cards)
+    let wild_count = deck.iter().filter(|c| c.get_color() == Color::Wild).count();
+    println!("Wild cards in deck: {wild_count}");
+
+    // Consume the deck into individual cards (IntoIterator for Cards)
+    let high_power: Vec<Card> = deck
+        .into_iter()
+        .filter(|c| matches!(c.get_action(), Action::DrawFour | Action::DrawSix | Action::DrawTen))
+        .collect();
+    println!("High-draw cards: {}", high_power.len());
+    for card in &high_power {
+        println!("  {card}");
+    }
 }
