@@ -9,6 +9,7 @@ use std::fmt;
 ///
 /// `Wild` is used for cards that can be played on any color.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Color {
     Yellow,
     Red,
@@ -23,6 +24,7 @@ impl Color {
     ///
     /// # Panics
     /// Panics if `s` is not one of `"yellow"`, `"red"`, `"green"`, `"blue"`, `"wild"`.
+    #[must_use]
     pub fn from_string(s: &str) -> Self {
         match s {
             "yellow" => Color::Yellow,
@@ -49,6 +51,7 @@ impl fmt::Display for Color {
 
 /// The action (face value) of an Uno card.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Action {
     /// A numbered card (0–9).
     Number(u8),
@@ -79,6 +82,7 @@ impl Action {
     ///
     /// # Panics
     /// Panics if `s` does not match a known action string.
+    #[must_use]
     pub fn from_string(s: &str) -> Self {
         match s {
             "0"              => Action::Number(0),
@@ -133,6 +137,7 @@ pub struct Card {
 
 impl Card {
     /// Creates a new [`Card`] with the given color and action.
+    #[must_use]
     pub fn new(color: Color, action: Action) -> Self {
         Card { color, action }
     }
@@ -141,6 +146,7 @@ impl Card {
     ///
     /// # Panics
     /// Panics if the string format is invalid.
+    #[must_use]
     pub fn from_string(s: &str) -> Self {
         let parts = s.split_whitespace().collect::<Vec<&str>>();
         let color  = Color::from_string(parts[0]);
@@ -149,11 +155,13 @@ impl Card {
     }
 
     /// Returns the card's [`Color`].
+    #[must_use]
     pub fn get_color(&self) -> Color {
         self.color
     }
 
     /// Returns the card's [`Action`].
+    #[must_use]
     pub fn get_action(&self) -> Action {
         self.action
     }

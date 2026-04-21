@@ -8,6 +8,7 @@ use crate::card::{Action, Card, Color};
 ///
 /// Returned by [`Cards::is_shuffled_properly`].
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ShuffleScore {
     /// Per-card window scores.
     ///
@@ -42,6 +43,7 @@ pub struct ShuffleScore {
 /// println!("Quality: {}", score.quality);
 /// ```
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct Cards {
     /// The ordered list of cards in this deck.
     pub cards: Vec<Card>,
@@ -51,6 +53,7 @@ impl Cards {
     /// Creates a deck of `size` placeholder cards (Yellow `Number(0)`).
     ///
     /// Useful as a pre-allocated buffer before filling the deck manually.
+    #[must_use]
     pub fn new(size: usize) -> Self {
         Cards {
             cards: (0..size)
@@ -62,11 +65,13 @@ impl Cards {
     /// Creates an empty deck.
     ///
     /// Equivalent to `Cards::default()`.
+    #[must_use]
     pub fn empty() -> Self {
         Cards::default()
     }
 
     /// Creates a [`Cards`] directly from an existing [`Vec<Card>`].
+    #[must_use]
     pub fn from_cards(cards: Vec<Card>) -> Self {
         Cards { cards }
     }
@@ -77,6 +82,7 @@ impl Cards {
     /// for example: `0 yellow 2`. Invalid or blank lines are silently skipped.
     ///
     /// Returns an empty deck if the file cannot be read.
+    #[must_use]
     pub fn from_file(filename: &str) -> Self {
         if let Ok(contents) = std::fs::read_to_string(filename) {
             let cards = contents
@@ -101,11 +107,13 @@ impl Cards {
     }
 
     /// Returns the number of cards in the deck.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cards.len()
     }
 
     /// Returns `true` if the deck contains no cards.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cards.is_empty()
     }
@@ -171,11 +179,11 @@ impl Cards {
         let mut right = cards[mid..].to_vec();
         right.reverse();
 
-        for i in 0..cards.len() {
+        for (i, slot) in cards.iter_mut().enumerate() {
             if i % 2 == 0 {
-                cards[i] = left.pop().unwrap();
+                *slot = left.pop().unwrap();
             } else {
-                cards[i] = right.pop().unwrap();
+                *slot = right.pop().unwrap();
             }
         }
     }
@@ -183,7 +191,7 @@ impl Cards {
     /// Returns the "power" of a card, used for shuffle evaluation.
     ///
     /// Higher power = more impactful card. Wild cards receive a +2 bonus.
-    fn card_power(card: &Card) -> i32 {
+    fn card_power(card: Card) -> i32 {
         let mut power = match card.get_action() {
             Action::Number(_)                                          => 1,
             Action::Skip | Action::Reverse                             => 2,
@@ -208,14 +216,14 @@ impl Cards {
 
         let mut score = 0i32;
         for card in &cards[start..end] {
-            score += Self::card_power(card);
+            score += Self::card_power(*card);
             if card.get_action() == Action::DiscardAll {
                 let color = card.get_color();
-                score += cards.iter().filter(|c| c.get_color() == color).count() as i32 * 5;
+                score += i32::try_from(cards.iter().filter(|c| c.get_color() == color).count()).unwrap_or(i32::MAX) * 5;
             }
         }
 
-        score.pow(2) / window as i32
+        score.pow(2) / i32::try_from(window).unwrap_or(1)
     }
 
     // ─── Evaluation ───────────────────────────────────────────────────────────
@@ -246,6 +254,7 @@ impl Cards {
     /// let score = deck.is_shuffled_properly();
     /// println!("Quality: {}", score.quality);
     /// ```
+    #[must_use]
     pub fn is_shuffled_properly(&self) -> ShuffleScore {
         if self.cards.is_empty() {
             return ShuffleScore { scores: vec![], quality: 0 };
@@ -255,9 +264,9 @@ impl Cards {
 
         // Uniform baseline: the score a window would get if every card had
         // exactly the deck-average power.
-        let total_power: i32 = self.cards.iter().map(Self::card_power).sum();
-        let mean_power  = total_power / self.cards.len() as i32;
-        let ideal       = mean_power * mean_power * window as i32;
+        let total_power: i32 = self.cards.iter().map(|c| Self::card_power(*c)).sum();
+        let mean_power  = total_power / i32::try_from(self.cards.len()).unwrap_or(1);
+        let ideal       = mean_power * mean_power * i32::try_from(window).unwrap_or(1);
 
         let mut scores      = Vec::with_capacity(self.cards.len());
         let mut total_score = 0i32;
