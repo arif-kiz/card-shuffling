@@ -165,6 +165,7 @@ impl Cards {
         let mid = self.cards.len() / 2;
         Self::riffle(&mut self.cards[0..mid]);
         Self::riffle(&mut self.cards[mid..]);
+        self.riffle_shuffle();
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
@@ -218,8 +219,8 @@ impl Cards {
         for card in &cards[start..end] {
             score += Self::card_power(*card);
             if card.get_action() == Action::DiscardAll {
-                let color = card.get_color();
-                score += i32::try_from(cards.iter().filter(|c| c.get_color() == color).count()).unwrap_or(i32::MAX) * 5;
+                // Bonus capped at 5 × the card's own power to avoid dominating the window.
+                score += Self::card_power(*card) * 5;
             }
         }
 
@@ -277,7 +278,9 @@ impl Cards {
             total_score += ideal - raw; // positive when window is below ideal (good)
         }
 
-        ShuffleScore { scores, quality: total_score }
+        // Normalise to a per-card average so the scale is independent of deck size.
+        let n = i32::try_from(self.cards.len()).unwrap_or(1);
+        ShuffleScore { scores, quality: total_score / n }
     }
 }
 
