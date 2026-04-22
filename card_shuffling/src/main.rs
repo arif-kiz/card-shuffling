@@ -19,6 +19,53 @@ fn status(label: &str, deck: &Cards) {
     println!();
 }
 
+/// Shuffles `deck` repeatedly until quality stops improving.
+///
+/// Stops when no new best is found within `patience` consecutive shuffles.
+/// Only compiled when the `grind` feature is enabled:
+/// ```sh
+/// cargo run --release --features grind
+/// ```
+#[cfg(feature = "grind")]
+fn grind_until_positive(deck: &mut Cards) {
+    use std::time::Instant;
+
+    const PATIENCE: u64 = 10_000;
+
+    println!("\n── grind mode (patience = {PATIENCE}) ──────────────────────────");
+    let start    = Instant::now();
+    let mut itr  = 0u64;
+    let mut best = deck.is_shuffled_properly().quality;
+    let mut since_best = 0u64;
+
+    loop {
+        deck.double_riffle_shuffle();
+        itr += 1;
+        since_best += 1;
+
+        let quality = deck.is_shuffled_properly().quality;
+
+        if quality > best {
+            best = quality;
+            since_best = 0;
+            println!("  iter {itr:>8} | ✨ new best: {best:>6}");
+        }
+
+        if itr.is_multiple_of(10_000) {
+            println!("  iter {itr:>8} | quality: {quality:>6} | best: {best:>6} | no-improve: {since_best}");
+        }
+
+        if since_best >= PATIENCE {
+            println!(
+                "\n  🏁  Best quality {best} reached after {itr} shuffles ({:.2?})",
+                start.elapsed()
+            );
+            status("Final deck", deck);
+            break;
+        }
+    }
+}
+
 fn main() {
     let mut deck = Cards::from_file("uno_nomercy.txt");
     println!("Loaded {} cards\n", deck.len());
@@ -31,26 +78,30 @@ fn main() {
     deck.split_at(50);
     status("After split_at(50)", &deck);
 
+    deck.take_from_middle(20, 80);
+    status("After take_from_middle", &deck);
+
     deck.riffle_shuffle();
     status("After riffle_shuffle", &deck);
 
     deck.double_riffle_shuffle();
     status("After double_riffle", &deck);
 
-    deck.take_from_middle(20, 80);
-    status("After take_from_middle", &deck);
+    #[cfg(feature = "grind")]
+    grind_until_positive(&mut deck);
 
     // Iterate directly over the deck (IntoIterator for &Cards)
     let wild_count = deck.iter().filter(|c| c.get_color() == Color::Wild).count();
     println!("Wild cards in deck: {wild_count}");
 
     // Consume the deck into individual cards (IntoIterator for Cards)
-    let high_power: Vec<Card> = deck
+    let high_power: Vec<(usize, Card)> = deck
         .into_iter()
-        .filter(|c| matches!(c.get_action(), Action::DrawFour | Action::DrawSix | Action::DrawTen))
+        .enumerate()
+        .filter(|(_, c)| matches!(c.get_action(), Action::DrawFour | Action::DrawSix | Action::DrawTen | Action::ReverseDrawFour))
         .collect();
     println!("High-draw cards: {}", high_power.len());
-    for card in &high_power {
-        println!("  {card}");
+    for (i, card) in &high_power {
+        println!("  {i}: {card}");
     }
 }
