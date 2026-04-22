@@ -51,7 +51,7 @@ fn grind_until_positive(deck: &mut Cards) {
             println!("  iter {itr:>8} | ✨ new best: {best:>6}");
         }
 
-        if itr % 10_000 == 0 {
+        if itr.is_multiple_of(10_000) {
             println!("  iter {itr:>8} | quality: {quality:>6} | best: {best:>6} | no-improve: {since_best}");
         }
 
