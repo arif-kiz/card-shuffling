@@ -28,11 +28,11 @@ impl Color {
     pub fn from_string(s: &str) -> Self {
         match s {
             "yellow" => Color::Yellow,
-            "red"    => Color::Red,
-            "green"  => Color::Green,
-            "blue"   => Color::Blue,
-            "wild"   => Color::Wild,
-            _        => panic!("Invalid color: {s:?}"),
+            "red" => Color::Red,
+            "green" => Color::Green,
+            "blue" => Color::Blue,
+            "wild" => Color::Wild,
+            _ => panic!("Invalid color: {s:?}"),
         }
     }
 }
@@ -41,18 +41,25 @@ impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Color::Yellow => write!(f, "yellow"),
-            Color::Red    => write!(f, "red"),
-            Color::Green  => write!(f, "green"),
-            Color::Blue   => write!(f, "blue"),
-            Color::Wild   => write!(f, "wild"),
+            Color::Red => write!(f, "red"),
+            Color::Green => write!(f, "green"),
+            Color::Blue => write!(f, "blue"),
+            Color::Wild => write!(f, "wild"),
         }
     }
+}
+
+pub trait Action
+    where Self: Clone + Copy + PartialEq + Eq
+{
+    fn from_string(s: &str) -> Self;
+    fn power(self) -> i32;
 }
 
 /// The action (face value) of an Uno card.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
-pub enum Action {
+pub enum UnoNoMercyAction {
     /// A numbered card (0–9).
     Number(u8),
     /// Skips the next player's turn.
@@ -77,68 +84,79 @@ pub enum Action {
     ColorRoulette,
 }
 
-impl Action {
-    /// Parses an [`Action`] from a string slice.
+impl Action for UnoNoMercyAction {
+    /// Parses an [`UnoNoMercyAction`] from a string slice.
     ///
     /// # Panics
     /// Panics if `s` does not match a known action string.
-    #[must_use]
-    pub fn from_string(s: &str) -> Self {
+    fn from_string(s: &str) -> Self {
         match s {
-            "0"              => Action::Number(0),
-            "1"              => Action::Number(1),
-            "2"              => Action::Number(2),
-            "3"              => Action::Number(3),
-            "4"              => Action::Number(4),
-            "5"              => Action::Number(5),
-            "6"              => Action::Number(6),
-            "7"              => Action::Number(7),
-            "8"              => Action::Number(8),
-            "9"              => Action::Number(9),
-            "skip"           => Action::Skip,
-            "reverse"        => Action::Reverse,
-            "+2"             => Action::DrawTwo,
-            "skip_all"       => Action::SkipAll,
-            "+4"             => Action::DrawFour,
-            "discard_all"    => Action::DiscardAll,
-            "reverse_+4"     => Action::ReverseDrawFour,
-            "+6"             => Action::DrawSix,
-            "+10"            => Action::DrawTen,
-            "color_roulette" => Action::ColorRoulette,
-            _                => panic!("Invalid action: {s:?}"),
+            "0" => UnoNoMercyAction::Number(0),
+            "1" => UnoNoMercyAction::Number(1),
+            "2" => UnoNoMercyAction::Number(2),
+            "3" => UnoNoMercyAction::Number(3),
+            "4" => UnoNoMercyAction::Number(4),
+            "5" => UnoNoMercyAction::Number(5),
+            "6" => UnoNoMercyAction::Number(6),
+            "7" => UnoNoMercyAction::Number(7),
+            "8" => UnoNoMercyAction::Number(8),
+            "9" => UnoNoMercyAction::Number(9),
+            "skip" => UnoNoMercyAction::Skip,
+            "reverse" => UnoNoMercyAction::Reverse,
+            "+2" => UnoNoMercyAction::DrawTwo,
+            "skip_all" => UnoNoMercyAction::SkipAll,
+            "+4" => UnoNoMercyAction::DrawFour,
+            "discard_all" => UnoNoMercyAction::DiscardAll,
+            "reverse_+4" => UnoNoMercyAction::ReverseDrawFour,
+            "+6" => UnoNoMercyAction::DrawSix,
+            "+10" => UnoNoMercyAction::DrawTen,
+            "color_roulette" => UnoNoMercyAction::ColorRoulette,
+            _ => panic!("Invalid action: {s:?}"),
+        }
+    }
+
+    fn power(self) -> i32 {
+        match self {
+            UnoNoMercyAction::Number(_) => 1,
+            UnoNoMercyAction::Skip | UnoNoMercyAction::Reverse => 2,
+            UnoNoMercyAction::DrawTwo | UnoNoMercyAction::SkipAll | UnoNoMercyAction::DiscardAll => 3,
+            UnoNoMercyAction::DrawFour => 4,
+            UnoNoMercyAction::ReverseDrawFour => 5,
+            UnoNoMercyAction::DrawSix | UnoNoMercyAction::ColorRoulette => 6,
+            UnoNoMercyAction::DrawTen => 8,
         }
     }
 }
 
-impl fmt::Display for Action {
+impl fmt::Display for UnoNoMercyAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Action::Number(n)       => write!(f, "{n}"),
-            Action::Skip            => write!(f, "skip"),
-            Action::Reverse         => write!(f, "reverse"),
-            Action::DrawTwo         => write!(f, "+2"),
-            Action::SkipAll         => write!(f, "skip_all"),
-            Action::DrawFour        => write!(f, "+4"),
-            Action::DiscardAll      => write!(f, "discard_all"),
-            Action::ReverseDrawFour => write!(f, "reverse_+4"),
-            Action::DrawSix         => write!(f, "+6"),
-            Action::DrawTen         => write!(f, "+10"),
-            Action::ColorRoulette   => write!(f, "color_roulette"),
+            UnoNoMercyAction::Number(n) => write!(f, "{n}"),
+            UnoNoMercyAction::Skip => write!(f, "skip"),
+            UnoNoMercyAction::Reverse => write!(f, "reverse"),
+            UnoNoMercyAction::DrawTwo => write!(f, "+2"),
+            UnoNoMercyAction::SkipAll => write!(f, "skip_all"),
+            UnoNoMercyAction::DrawFour => write!(f, "+4"),
+            UnoNoMercyAction::DiscardAll => write!(f, "discard_all"),
+            UnoNoMercyAction::ReverseDrawFour => write!(f, "reverse_+4"),
+            UnoNoMercyAction::DrawSix => write!(f, "+6"),
+            UnoNoMercyAction::DrawTen => write!(f, "+10"),
+            UnoNoMercyAction::ColorRoulette => write!(f, "color_roulette"),
         }
     }
 }
 
 /// A single Uno card consisting of a [`Color`] and an [`Action`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Card {
+pub struct Card<Act: Action> {
     color: Color,
-    action: Action,
+    action: Act,
 }
 
-impl Card {
+impl<Act: Action> Card<Act> {
     /// Creates a new [`Card`] with the given color and action.
     #[must_use]
-    pub fn new(color: Color, action: Action) -> Self {
+    pub fn new(color: Color, action: Act) -> Self {
         Card { color, action }
     }
 
@@ -149,7 +167,7 @@ impl Card {
     #[must_use]
     pub fn from_string(s: &str) -> Self {
         let parts = s.split_whitespace().collect::<Vec<&str>>();
-        let color  = Color::from_string(parts[0]);
+        let color = Color::from_string(parts[0]);
         let action = Action::from_string(parts[1]);
         Card { color, action }
     }
@@ -162,12 +180,14 @@ impl Card {
 
     /// Returns the card's [`Action`].
     #[must_use]
-    pub fn get_action(&self) -> Action {
+    pub fn get_action(&self) -> Act {
         self.action
     }
 }
 
-impl fmt::Display for Card {
+impl<Act: Action> fmt::Display for Card<Act> 
+    where Act: fmt::Display
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.color, self.action)
     }

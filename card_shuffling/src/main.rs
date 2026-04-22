@@ -6,10 +6,11 @@
 //! ```
 //! Place `uno_nomercy.txt` in the project root (next to `Cargo.toml`).
 
-use card_shuffling::prelude::*;
+use card_shuffling::{card::UnoNoMercyAction, prelude::*};
+use rand::rngs::ThreadRng;
 
 /// Prints a one-line status report for the deck.
-fn status(label: &str, deck: &Cards) {
+fn status(label: &str, deck: &Cards<UnoNoMercyAction, ThreadRng>) {
     let n = deck.len();
     let score = deck.is_shuffled_properly();
     let head  = &deck.cards[..5.min(n)];
@@ -27,7 +28,7 @@ fn status(label: &str, deck: &Cards) {
 /// cargo run --release --features grind
 /// ```
 #[cfg(feature = "grind")]
-fn grind_until_positive(deck: &mut Cards) {
+fn grind_until_positive(deck: &mut Cards<UnoNoMercyAction, ThreadRng>) {
     use std::time::Instant;
 
     const PATIENCE: u64 = 10_000;
@@ -40,6 +41,9 @@ fn grind_until_positive(deck: &mut Cards) {
 
     loop {
         deck.double_riffle_shuffle();
+        if itr.is_multiple_of(5) {
+            deck.randomize()
+        }
         itr += 1;
         since_best += 1;
 
@@ -67,7 +71,7 @@ fn grind_until_positive(deck: &mut Cards) {
 }
 
 fn main() {
-    let mut deck = Cards::from_file("uno_nomercy.txt");
+    let mut deck = Cards::from_file("uno_nomercy.txt", rand::rng());
     println!("Loaded {} cards\n", deck.len());
 
     status("Initial (unshuffled)", &deck);
@@ -95,10 +99,10 @@ fn main() {
     println!("Wild cards in deck: {wild_count}");
 
     // Consume the deck into individual cards (IntoIterator for Cards)
-    let high_power: Vec<(usize, Card)> = deck
-        .into_iter()
+    let high_power: Vec<(usize, Card<UnoNoMercyAction>)> = deck
+        .into_iter()    
         .enumerate()
-        .filter(|(_, c)| matches!(c.get_action(), Action::DrawFour | Action::DrawSix | Action::DrawTen | Action::ReverseDrawFour))
+        .filter(|(_, c)| matches!(c.get_action(), UnoNoMercyAction::DrawFour | UnoNoMercyAction::DrawSix | UnoNoMercyAction::DrawTen | UnoNoMercyAction::ReverseDrawFour))
         .collect();
     println!("High-draw cards: {}", high_power.len());
     for (i, card) in &high_power {

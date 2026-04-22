@@ -6,8 +6,9 @@
 //!
 //! ```no_run
 //! use card_shuffling::prelude::*;
+//! use card_shuffling::card::UnoNoMercyAction;
 //!
-//! let mut deck = Cards::from_file("uno_nomercy.txt");
+//! let mut deck: Cards<UnoNoMercyAction, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
 //! println!("Loaded {} cards", deck.len());
 //!
 //! let before = deck.is_shuffled_properly().quality;
