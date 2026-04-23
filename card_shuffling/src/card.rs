@@ -1,29 +1,43 @@
-//! Types representing individual Uno cards.
+//! Defines the core components of an Uno card.
 //!
-//! This module provides [`Color`], [`Action`], and [`Card`] — the building
-//! blocks used by [`crate::cards::Cards`] to form a deck.
+//! This module contains the fundamental structures and enums that make up a single card
+//! in an Uno deck. It includes the [`Color`] enum for representing card colors, the 
+//! [`Action`] trait defining the behavior and power of card faces, and the generic 
+//! [`Card`] struct which combines a color and an action.
+//! 
+//! Additionally, it provides [`UnoNoMercyAction`], a specific implementation of the 
+//! [`Action`] trait tailored for the "Uno No Mercy" rule set.
 
 use std::fmt;
 
-/// The color of an Uno card.
+/// Represents the color suit of an Uno card.
 ///
-/// `Wild` is used for cards that can be played on any color.
+/// A standard Uno deck consists of four primary colors (Yellow, Red, Green, Blue)
+/// and a special `Wild` category for cards that transcend color restrictions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Color {
+    /// The yellow color suit.
     Yellow,
+    /// The red color suit.
     Red,
+    /// The green color suit.
     Green,
+    /// The blue color suit.
     Blue,
-    /// Applies to wild-type cards that can be played on any color.
+    /// Represents wild cards which can be played on top of any color.
     Wild,
 }
 
 impl Color {
-    /// Parses a [`Color`] from a lowercase string slice.
+    /// Converts a lowercase string slice into a [`Color`] variant.
+    ///
+    /// The supported string values are exactly the lowercase names of the variants.
     ///
     /// # Panics
-    /// Panics if `s` is not one of `"yellow"`, `"red"`, `"green"`, `"blue"`, `"wild"`.
+    ///
+    /// Panics if the provided string `s` is not one of: `"yellow"`, `"red"`, `"green"`, 
+    /// `"blue"`, or `"wild"`.
     #[must_use]
     pub fn from_string(s: &str) -> Self {
         match s {
@@ -49,46 +63,66 @@ impl fmt::Display for Color {
     }
 }
 
+/// Defines the behavior and properties of a card's face value or action.
+///
+/// This trait allows the [`Card`] struct to be generic over different Uno rule sets
+/// (e.g., standard Uno, Uno Flip, Uno No Mercy). Any type implementing this trait
+/// can be used as the action component of a `Card`.
 pub trait Action
     where Self: Clone + Copy + PartialEq + Eq
 {
+    /// Parses the action from its string representation.
+    ///
+    /// This is typically used when loading a deck configuration from a file.
     fn from_string(s: &str) -> Self;
+    
+    /// Returns the "power" level of the action.
+    ///
+    /// Power is a heuristic metric used primarily for evaluating the quality of a 
+    /// shuffle. Higher values generally correspond to more impactful cards 
+    /// (e.g., a `DrawTen` has significantly more power than a simple `Number`).
     fn power(self) -> i32;
 }
 
-/// The action (face value) of an Uno card.
+/// The specific actions and face values available in the "Uno No Mercy" game variant.
+///
+/// This enum implements the [`Action`] trait and includes both standard Uno cards
+/// (numbers, skips, reverses) and the extreme penalty cards introduced in the 
+/// No Mercy edition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum UnoNoMercyAction {
-    /// A numbered card (0–9).
+    /// A standard numbered card with a value from 0 to 9.
     Number(u8),
-    /// Skips the next player's turn.
+    /// Skips the next player's turn entirely.
     Skip,
-    /// Reverses the direction of play.
+    /// Reverses the current direction of play.
     Reverse,
-    /// Forces the next player to draw two cards.
+    /// Forces the next player to draw two cards and lose their turn.
     DrawTwo,
-    /// Skips all other players.
+    /// Skips the turns of all other players, giving the current player another turn.
     SkipAll,
-    /// Forces the next player to draw four cards.
+    /// Forces the next player to draw four cards and lose their turn.
     DrawFour,
-    /// Discards all cards of the chosen color from the next player's hand.
+    /// Allows the player to discard all cards of a matching color from their hand.
     DiscardAll,
-    /// Reverses play direction and forces the next player to draw four.
+    /// Reverses the direction of play AND forces the new next player to draw four cards.
     ReverseDrawFour,
-    /// Forces the next player to draw six cards.
+    /// Forces the next player to draw six cards and lose their turn.
     DrawSix,
-    /// Forces the next player to draw ten cards.
+    /// Forces the next player to draw ten cards and lose their turn.
     DrawTen,
-    /// Each player secretly picks a color; those who pick differently draw cards.
+    /// A chaotic card where players must secretly choose a color. Those who do not 
+    /// match the primary player's choice must draw cards.
     ColorRoulette,
 }
 
 impl Action for UnoNoMercyAction {
-    /// Parses an [`UnoNoMercyAction`] from a string slice.
+    /// Parses an [`UnoNoMercyAction`] from a specific string identifier.
     ///
     /// # Panics
-    /// Panics if `s` does not match a known action string.
+    ///
+    /// Panics if the string does not match any known Uno No Mercy action identifier.
     fn from_string(s: &str) -> Self {
         match s {
             "0" => UnoNoMercyAction::Number(0),
@@ -115,6 +149,10 @@ impl Action for UnoNoMercyAction {
         }
     }
 
+    /// Calculates the heuristic power of the card action for shuffle evaluation.
+    ///
+    /// The power scale is roughly proportional to the severity of the card's effect,
+    /// ranging from 1 for simple number cards up to 8 for the devastating `DrawTen`.
     fn power(self) -> i32 {
         match self {
             UnoNoMercyAction::Number(_) => 1,
@@ -146,7 +184,11 @@ impl fmt::Display for UnoNoMercyAction {
     }
 }
 
-/// A single Uno card consisting of a [`Color`] and an [`Action`].
+/// A fundamental representation of a single card in the deck.
+///
+/// It combines a [`Color`] suit with a specific [`Action`] face value. By making the
+/// action type generic, this struct can represent cards from various Uno editions 
+/// seamlessly, provided the action implements the [`Action`] trait.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Card<Act: Action> {
     color: Color,
@@ -154,16 +196,21 @@ pub struct Card<Act: Action> {
 }
 
 impl<Act: Action> Card<Act> {
-    /// Creates a new [`Card`] with the given color and action.
+    /// Instantiates a new [`Card`] from a designated color and action.
     #[must_use]
     pub fn new(color: Color, action: Act) -> Self {
         Card { color, action }
     }
 
-    /// Parses a [`Card`] from a string of the form `"<color> <action>"`.
+    /// Constructs a [`Card`] by parsing a space-separated string.
+    ///
+    /// The expected format is `"<color> <action>"`, where the color and action
+    /// strings correspond to the implementations of their respective `from_string` methods.
     ///
     /// # Panics
-    /// Panics if the string format is invalid.
+    ///
+    /// Panics if the input string does not contain at least two space-separated words,
+    /// or if either the color or action cannot be parsed.
     #[must_use]
     pub fn from_string(s: &str) -> Self {
         let parts = s.split_whitespace().collect::<Vec<&str>>();
@@ -172,13 +219,13 @@ impl<Act: Action> Card<Act> {
         Card { color, action }
     }
 
-    /// Returns the card's [`Color`].
+    /// Retrieves the card's color suit.
     #[must_use]
     pub fn get_color(&self) -> Color {
         self.color
     }
 
-    /// Returns the card's [`Action`].
+    /// Retrieves the card's specific action or face value.
     #[must_use]
     pub fn get_action(&self) -> Act {
         self.action
