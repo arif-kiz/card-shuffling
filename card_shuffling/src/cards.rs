@@ -35,9 +35,12 @@ pub struct ShuffleScore {
 /// # Example
 /// ```no_run
 /// use card_shuffling::prelude::*;
-/// use card_shuffling::card::UnoNoMercyAction;
+/// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyColor;
+/// # impl Color for MyColor { fn from_string(_: &str) -> Self { Self } fn is_wild(&self) -> bool { false } }
+/// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
+/// # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
 ///
-/// let mut deck: Cards<UnoNoMercyAction, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+/// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
 /// println!("Loaded {} cards", deck.len());
 ///
 /// deck.riffle_shuffle();
@@ -46,22 +49,20 @@ pub struct ShuffleScore {
 /// ```
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
-pub struct Cards<Act: Action, R: Rng> {
+pub struct Cards<Act: Action, Col: Color, R: Rng> {
     /// The ordered list of cards in this deck.
-    pub cards: Vec<Card<Act>>,
+    pub cards: Vec<Card<Act, Col>>,
     rng: R,
 }
 
-impl<Act: Action, R: Rng> Cards<Act, R> {
+impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     /// Creates a deck of `size` placeholder cards (Yellow `Number(0)`).
     ///
     /// Useful as a pre-allocated buffer before filling the deck manually.
     #[must_use]
     pub fn new(size: usize, rng: R) -> Self {
         Cards {
-            cards: (0..size)
-                .map(|_| Card::new(Color::Yellow, Act::from_string("0")))
-                .collect(),
+            cards: vec![Card::default(); size],
             rng,
         }
     }
@@ -76,7 +77,7 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
 
     /// Creates a [`Cards`] directly from an existing [`Vec<Card>`].
     #[must_use]
-    pub fn from_cards(cards: Vec<Card<Act>>, rng: R) -> Self {
+    pub fn from_cards(cards: Vec<Card<Act, Col>>, rng: R) -> Self {
         Cards { cards, rng }
     }
 
@@ -123,7 +124,7 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
     }
 
     /// Returns an iterator over the cards in the deck.
-    pub fn iter(&self) -> std::slice::Iter<'_, Card<Act>> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Card<Act, Col>> {
         self.cards.iter()
     }
 
@@ -177,7 +178,7 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
     /// Riffle-shuffles an arbitrary card slice in-place.
     ///
     /// Splits the slice in half, reverses each half, then interleaves them.
-    fn riffle(cards: &mut [Card<Act>]) {
+    fn riffle(cards: &mut [Card<Act, Col>]) {
         let mid = cards.len() / 2;
         let mut left = cards[..mid].to_vec();
         left.reverse();
@@ -196,9 +197,9 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
     /// Returns the "power" of a card, used for shuffle evaluation.
     ///
     /// Higher power = more impactful card. Wild cards receive a +2 bonus.
-    fn card_power(card: Card<Act>) -> i32 {
+    fn card_power(card: Card<Act, Col>) -> i32 {
         let mut power = card.get_action().power();
-        if card.get_color() == Color::Wild {
+        if card.get_color().is_wild() {
             power += 2;
         }
         power
@@ -207,7 +208,7 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
     /// Scores the power concentration in a `window`-sized region centred at `index`.
     ///
     /// Formula: `(sum_of_powers)² / window`. Higher = more clustered.
-    fn evaluate_cards_in_window(cards: &[Card<Act>], index: usize, window: usize) -> i32 {
+    fn evaluate_cards_in_window(cards: &[Card<Act, Col>], index: usize, window: usize) -> i32 {
         let start = index.saturating_sub(window / 2);
         let end   = (index + window / 2 + 1).min(cards.len());
 
@@ -241,9 +242,12 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
     /// # Example
     /// ```no_run
     /// use card_shuffling::prelude::*;
-    /// use card_shuffling::card::UnoNoMercyAction;
+    /// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyColor;
+    /// # impl Color for MyColor { fn from_string(_: &str) -> Self { Self } fn is_wild(&self) -> bool { false } }
+    /// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
+    /// # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
     ///
-    /// let mut deck: Cards<UnoNoMercyAction, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+    /// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
     /// deck.riffle_shuffle();
     /// let score = deck.is_shuffled_properly();
     /// println!("Quality: {}", score.quality);
@@ -276,6 +280,30 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
         ShuffleScore { scores, quality: total_score / n }
     }
 
+    /// Returns a list of indices of all "wild" cards in the deck.
+    ///
+    /// This is useful for testing and debugging to verify the distribution of wild cards.
+    #[must_use]
+    pub fn get_wild_card_indices(&self) -> Vec<usize> {
+        self.cards.iter().enumerate()
+            .filter(|(_, card)| card.get_color().is_wild())
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    /// Returns a list of indices of all "high-draw" cards in the deck.
+    ///
+    /// "High-draw" cards are defined as any card with a power greater than 4.
+    /// This includes all `DrawTwo`, `DrawFour`, `DrawSix`, `DrawTen`, and `ReverseDrawFour` cards,
+    /// as well as any other actions that implement `power() > 4`.
+    #[must_use]
+    pub fn get_high_draw_card_indices(&self) -> Vec<usize> {
+        self.cards.iter().enumerate()
+            .filter(|(_, card)| card.get_action().power() > 4)
+            .map(|(index, _)| index)
+            .collect()
+    }
+
     /// Completely randomizes the order of the cards using the deck's internal RNG.
     ///
     /// This provides a perfectly uniform shuffle, unlike the simulated riffle
@@ -287,26 +315,26 @@ impl<Act: Action, R: Rng> Cards<Act, R> {
 
 // ─── Trait implementations ────────────────────────────────────────────────────
 
-impl<Act: Action> From<Vec<Card<Act>>> for Cards<Act, ThreadRng> {
+impl<Act: Action, Col: Color> From<Vec<Card<Act, Col>>> for Cards<Act, Col, ThreadRng> {
     /// Creates a deck directly from a `Vec<Card>`, automatically initializing 
     /// a default [`ThreadRng`] for shuffling operations.
-    fn from(cards: Vec<Card<Act>>) -> Self {
+    fn from(cards: Vec<Card<Act, Col>>) -> Self {
         Cards { cards, rng: rand::rng() }
     }
 }
 
-impl<Act: Action, R: Rng> IntoIterator for Cards<Act, R> {
-    type Item = Card<Act>;
-    type IntoIter = std::vec::IntoIter<Card<Act>>;
+impl<Act: Action, Col: Color, R: Rng> IntoIterator for Cards<Act, Col, R> {
+    type Item = Card<Act, Col>;
+    type IntoIter = std::vec::IntoIter<Card<Act, Col>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.cards.into_iter()
     }
 }
 
-impl<'a, Act: Action, R: Rng> IntoIterator for &'a Cards<Act, R> {
-    type Item = &'a Card<Act>;
-    type IntoIter = std::slice::Iter<'a, Card<Act>>;
+impl<'a, Act: Action, Col: Color, R: Rng> IntoIterator for &'a Cards<Act, Col, R> {
+    type Item = &'a Card<Act, Col>;
+    type IntoIter = std::slice::Iter<'a, Card<Act, Col>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.cards.iter()

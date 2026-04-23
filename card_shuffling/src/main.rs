@@ -6,11 +6,14 @@
 //! ```
 //! Place `uno_nomercy.txt` in the project root (next to `Cargo.toml`).
 
-use card_shuffling::{card::UnoNoMercyAction, prelude::*};
+mod card_examples;
+
+use card_examples::{UnoColor, UnoNoMercyAction};
+use card_shuffling::prelude::*;
 use rand::rngs::ThreadRng;
 
 /// Prints a one-line status report for the deck.
-fn status(label: &str, deck: &Cards<UnoNoMercyAction, ThreadRng>) {
+fn status(label: &str, deck: &Cards<UnoNoMercyAction, UnoColor, ThreadRng>) {
     let n = deck.len();
     let score = deck.is_shuffled_properly();
     let head  = &deck.cards[..5.min(n)];
@@ -28,7 +31,7 @@ fn status(label: &str, deck: &Cards<UnoNoMercyAction, ThreadRng>) {
 /// cargo run --release --features grind
 /// ```
 #[cfg(feature = "grind")]
-fn grind_until_positive(deck: &mut Cards<UnoNoMercyAction, ThreadRng>) {
+fn grind_until_positive(deck: &mut Cards<UnoNoMercyAction, UnoColor, ThreadRng>) {
     use std::time::Instant;
 
     const PATIENCE: u64 = 10_000;
@@ -95,17 +98,12 @@ fn main() {
     grind_until_positive(&mut deck);
 
     // Iterate directly over the deck (IntoIterator for &Cards)
-    let wild_count = deck.iter().filter(|c| c.get_color() == Color::Wild).count();
-    println!("Wild cards in deck: {wild_count}");
+    let wild_indices = deck.get_wild_card_indices();
+    println!("Wild cards in deck: {}", wild_indices.len());
+    println!("Wild card indices: {:?}", wild_indices);
 
     // Consume the deck into individual cards (IntoIterator for Cards)
-    let high_power: Vec<(usize, Card<UnoNoMercyAction>)> = deck
-        .into_iter()    
-        .enumerate()
-        .filter(|(_, c)| matches!(c.get_action(), UnoNoMercyAction::DrawFour | UnoNoMercyAction::DrawSix | UnoNoMercyAction::DrawTen | UnoNoMercyAction::ReverseDrawFour))
-        .collect();
-    println!("High-draw cards: {}", high_power.len());
-    for (i, card) in &high_power {
-        println!("  {i}: {card}");
-    }
+    let high_power_indices = deck.get_high_draw_card_indices();
+    println!("High-draw cards: {}", high_power_indices.len());
+    println!("High-draw card indices: {:?}", high_power_indices);
 }

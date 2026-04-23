@@ -6,9 +6,12 @@
 //!
 //! ```no_run
 //! use card_shuffling::prelude::*;
-//! use card_shuffling::card::UnoNoMercyAction;
+//! # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyColor;
+//! # impl Color for MyColor { fn from_string(_: &str) -> Self { Self } fn is_wild(&self) -> bool { false } }
+//! # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
+//! # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
 //!
-//! let mut deck: Cards<UnoNoMercyAction, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+//! let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
 //! println!("Loaded {} cards", deck.len());
 //!
 //! let before = deck.is_shuffled_properly().quality;
