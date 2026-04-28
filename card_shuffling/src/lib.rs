@@ -11,7 +11,7 @@
 //! # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
 //! # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
 //!
-//! let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+//! let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", Some(rand::rng()));
 //! println!("Loaded {} cards", deck.len());
 //!
 //! let before = deck.is_shuffled_properly().quality;

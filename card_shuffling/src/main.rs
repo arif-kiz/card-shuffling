@@ -74,7 +74,7 @@ fn grind_until_positive(deck: &mut Cards<UnoNoMercyAction, UnoColor, ThreadRng>)
 }
 
 fn main() {
-    let mut deck = Cards::from_file("uno_nomercy.txt", rand::rng());
+    let mut deck = Cards::from_file("uno_nomercy.txt", Some(rand::rng()));
     println!("Loaded {} cards\n", deck.len());
 
     status("Initial (unshuffled)", &deck);

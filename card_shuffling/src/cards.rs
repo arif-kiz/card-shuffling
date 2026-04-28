@@ -40,7 +40,7 @@ pub struct ShuffleScore {
 /// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
 /// # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
 ///
-/// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+/// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", Some(rand::rng()));
 /// println!("Loaded {} cards", deck.len());
 ///
 /// deck.riffle_shuffle();
@@ -52,7 +52,7 @@ pub struct ShuffleScore {
 pub struct Cards<Act: Action, Col: Color, R: Rng> {
     /// The ordered list of cards in this deck.
     pub cards: Vec<Card<Act, Col>>,
-    rng: R,
+    rng: Option<R>,
 }
 
 impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
@@ -60,7 +60,7 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     ///
     /// Useful as a pre-allocated buffer before filling the deck manually.
     #[must_use]
-    pub fn new(size: usize, rng: R) -> Self {
+    pub fn new(size: usize, rng: Option<R>) -> Self {
         Cards {
             cards: vec![Card::default(); size],
             rng,
@@ -71,13 +71,13 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     ///
     /// Equivalent to `Cards::default()`.
     #[must_use]
-    pub fn empty(rng: R) -> Self {
-        Cards::new(0, rng)
+    pub fn empty() -> Self {
+        Cards::new(0, None)
     }
 
     /// Creates a [`Cards`] directly from an existing [`Vec<Card>`].
     #[must_use]
-    pub fn from_cards(cards: Vec<Card<Act, Col>>, rng: R) -> Self {
+    pub fn from_cards(cards: Vec<Card<Act, Col>>, rng: Option<R>) -> Self {
         Cards { cards, rng }
     }
 
@@ -88,7 +88,7 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     ///
     /// Returns an empty deck if the file cannot be read.
     #[must_use]
-    pub fn from_file(filename: &str, rng: R) -> Self {
+    pub fn from_file(filename: &str, rng: Option<R>) -> Self {
         if let Ok(contents) = std::fs::read_to_string(filename) {
             let cards = contents
                 .lines()
@@ -107,8 +107,22 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
                 .collect();
             Cards { cards, rng }
         } else {
-            Cards::empty(rng)
+            let mut cards = Cards::empty();
+            if let Some(r) = rng {
+                cards.init_rng(r);
+            }
+            cards
         }
+    }
+
+    /// Initialize the random number generator for the deck.
+    pub fn init_rng(&mut self, rng: R) {
+        self.rng = Some(rng);
+    }
+
+    /// Get the random number generator for the deck.
+    pub fn rng(&self) -> &Option<R> {
+        &self.rng
     }
 
     /// Returns the number of cards in the deck.
@@ -247,7 +261,7 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     /// # #[derive(Clone, Copy, PartialEq, Eq, Default)] struct MyAction;
     /// # impl Action for MyAction { fn from_string(_: &str) -> Self { Self } fn power(self) -> i32 { 1 } }
     ///
-    /// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", rand::rng());
+    /// let mut deck: Cards<MyAction, MyColor, _> = Cards::from_file("uno_nomercy.txt", Some(rand::rng()));
     /// deck.riffle_shuffle();
     /// let score = deck.is_shuffled_properly();
     /// println!("Quality: {}", score.quality);
@@ -309,7 +323,11 @@ impl<Act: Action, Col: Color, R: Rng> Cards<Act, Col, R> {
     /// This provides a perfectly uniform shuffle, unlike the simulated riffle
     /// shuffle methods which are designed to mimic imperfect human shuffling.
     pub fn randomize(&mut self) {
-        self.cards.shuffle(&mut self.rng);
+        if let Some(r) = &mut self.rng {
+            self.cards.shuffle(r);
+        } else {
+            self.cards.shuffle(&mut rand::rng());
+        }
     }
 }
 
@@ -319,7 +337,7 @@ impl<Act: Action, Col: Color> From<Vec<Card<Act, Col>>> for Cards<Act, Col, Thre
     /// Creates a deck directly from a `Vec<Card>`, automatically initializing 
     /// a default [`ThreadRng`] for shuffling operations.
     fn from(cards: Vec<Card<Act, Col>>) -> Self {
-        Cards { cards, rng: rand::rng() }
+        Cards { cards, rng: Some(rand::rng()) }
     }
 }
 
